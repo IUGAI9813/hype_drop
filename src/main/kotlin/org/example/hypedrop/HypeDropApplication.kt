@@ -7,5 +7,6 @@ import org.springframework.boot.runApplication
 class HypeDropApplication
 
 fun main(args: Array<String>) {
+    println("HypeDropApplication")
     runApplication<HypeDropApplication>(*args)
 }
