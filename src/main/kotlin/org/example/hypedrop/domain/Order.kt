@@ -5,7 +5,7 @@ import org.springframework.data.relational.core.mapping.Table
 import java.time.LocalDateTime
 
 @Table("orders")
-data class Orders(
+data class Order(
     @Id val id: Long? = null,
     val flashSaleId: Long,
     val userId: String,
