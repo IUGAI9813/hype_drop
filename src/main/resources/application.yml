@@ -1,10 +1,10 @@
 spring:
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/hypedrop
+    url: r2dbc:postgresql://43.202.161.24/hypedrop
     username: hypedrop
     password: hypedrop
 
   data:
     redis:
-      host: localhost
+      host: 43.202.161.24
       port: 6379
