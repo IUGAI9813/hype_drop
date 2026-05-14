@@ -1,6 +1,7 @@
 package org.example.hypedrop.controller
 
 import org.example.hypedrop.domain.FlashSaleEvent
+import org.example.hypedrop.domain.Order
 import org.example.hypedrop.service.FlashService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -19,6 +20,10 @@ data class CreateFlashSaleRequest(
     val productName: String,
     val totalStock: Int,
     val startTime: LocalDateTime
+)
+
+data class PurchaseRequest (
+    val userId: String
 )
 
 @RestController
@@ -40,5 +45,10 @@ class FlashController(private  val flashService: FlashService) {
     @GetMapping("/{id}")
     fun get(@PathVariable id: Long): Mono<FlashSaleEvent> {
         return  flashService.getFlash(id).switchIfEmpty(Mono.error(ResponseStatusException(HttpStatus.NOT_FOUND)));
+    }
+
+    @PostMapping("/{id}/purchase")
+    fun purchase(@PathVariable id: Long, @RequestBody request: PurchaseRequest): Mono<Order> {
+           return flashService.puchase(id, request.userId)
     }
 }
