@@ -26,10 +26,10 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
       return flashSaleEventRepository.findById(id)
   }
 
-    fun puchase(id: Long, userId: String) : Mono<Order> {
+    fun purchase(id: Long, userId: String) : Mono<Order> {
         return flashSaleEventRepository.findById(id).flatMap { fs ->  if (fs.remainingStock <= 0) {
 
-            Mono.error(ResponseStatusException(HttpStatus.CONFLICT, "SOLD OUT"))
+            Mono.error(ResponseStatusException(HttpStatus.CONFLICT, "SOLD OUT ITEM WITH ID $id"))
         } else {
             val updated = fs.copy(remainingStock = fs.remainingStock - 1)
             flashSaleEventRepository.save(updated).flatMap {

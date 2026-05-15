@@ -49,6 +49,6 @@ class FlashController(private  val flashService: FlashService) {
 
     @PostMapping("/{id}/purchase")
     fun purchase(@PathVariable id: Long, @RequestBody request: PurchaseRequest): Mono<Order> {
-           return flashService.puchase(id, request.userId)
+        return flashService.purchase(id, request.userId)
     }
 }
