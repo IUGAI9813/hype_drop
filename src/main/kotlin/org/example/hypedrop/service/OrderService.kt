@@ -2,7 +2,9 @@ package org.example.hypedrop.service
 
 import org.example.hypedrop.domain.Order
 import org.example.hypedrop.repository.OrderRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -16,5 +18,11 @@ class OrderService (private val orderRepository: OrderRepository) {
 
     fun getUserOrders(userId: String): Flux<Order> {
            return orderRepository.findByUserId(userId)
+    }
+
+    fun deleteOrder(id:Long): Mono<Void> {
+        return orderRepository.findById(id).switchIfEmpty(Mono.error(ResponseStatusException(HttpStatus.NOT_FOUND))).flatMap {
+            orderRepository.deleteById(id)
+        }
     }
 }
