@@ -48,6 +48,7 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
       return flashSaleEventRepository.findById(id)
   }
 
+    // 5천 요청이 동시 들어오면 재고가 마이너스 되고 주문량 늘어남
     fun purchase(id: Long, userId: String) : Mono<Order> {
         return flashSaleEventRepository.findById(id).flatMap { fs ->  if (fs.remainingStock <= 0) {
 
@@ -61,4 +62,21 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
         }
         }
     }
+
+    //  주문량 문제 해결됨 , 1천 오청 미만 경우에 사용,
+    //  1초에 10만 요청이 들어오면 하드디스크 부담, 복잡한 비즈니스 로직에 사용 어려움, 샤딩, 레프리케이션 적용된 경우 서버간 통신이 느림
+    fun purchasePostgressAtom(id: Long, userId: String) : Mono<Order> {
+        return flashSaleEventRepository.decreaseStock(id).flatMap { updateRows ->
+            if (updateRows === 0) {
+                Mono.error(ResponseStatusException(HttpStatus.CONFLICT, "SOLD OUT ITEM WITH ID"))
+            } else {
+                val order = Order(flashSaleId = id, userId = userId)
+                orderRepository.save(order)
+            }
+        }
+    }
+
+
+
+
 }
