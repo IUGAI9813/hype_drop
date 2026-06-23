@@ -12,9 +12,30 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.server.ResponseStatusException
 import reactor.core.publisher.Mono
 import java.time.LocalDateTime
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 
 @Service
-class FlashService ( private val flashSaleEventRepository: FlashSaleEventRepository, private val orderRepository: OrderRepository) {
+class FlashService (
+    private val flashSaleEventRepository: FlashSaleEventRepository,
+    private val orderRepository: OrderRepository,
+    private val redisTemplate: ReactiveStringRedisTemplate) {
+
+    private val decreaseStockScript: RedisScript<Long> = RedisScript.of(
+        """
+        local stock = tonumber(redis.call('get', KEYS[1]))
+        if not stock then
+            return -1
+        end
+        if stock > 0 then
+            redis.call('decrby', KEYS[1], 1)
+            return 1
+        else
+            return 0
+        end
+        """.trimIndent(),
+        Long::class.java
+    )
 
     fun save(productName : String, totalStock : Int,  startTime:LocalDateTime ) : Mono<FlashSaleEvent> {
         return flashSaleEventRepository.save(FlashSaleEvent(
@@ -22,7 +43,10 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
             totalStock = totalStock,
             remainingStock = totalStock,
             startTime = startTime
-        ))
+        )
+        ).flatMap { savedEvent ->
+            redisTemplate.opsForValue().set("flash:stock:${savedEvent.id}", savedEvent.remainingStock.toString()).thenReturn(savedEvent)
+        }
     }
 
     fun deleteFlashSaleEvent(id: Long): Mono<Void> {
@@ -41,6 +65,9 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
            status = flash.status ?: fs.status
        )
            flashSaleEventRepository.save(updated);
+       }.flatMap {
+           savedEvent ->
+           redisTemplate.opsForValue().set("flash:stock:${savedEvent.id}", savedEvent.remainingStock.toString()).thenReturn(savedEvent)
        }
     }
 
@@ -58,8 +85,8 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
             flashSaleEventRepository.save(updated).flatMap {
                 val order = Order(flashSaleId = id, userId = userId)
                 orderRepository.save(order)
-            }
-        }
+             }
+          }
         }
     }
 
@@ -76,6 +103,33 @@ class FlashService ( private val flashSaleEventRepository: FlashSaleEventReposit
         }
     }
 
+    // RedisLua 사용 방식
+    fun purchaseRedisLua(id: Long, userId: String) : Mono<Order> {
+        val redisKey = "flash:stock:$id"
+
+        return  redisTemplate.execute (
+            decreaseStockScript,
+            listOf(redisKey),
+            emptyList<String>()
+        ).next()
+            .flatMap {
+                result ->
+                when (result){
+                    1L -> {
+                        flashSaleEventRepository.decreaseStock(id).flatMap {
+                            val order = Order(flashSaleId = id, userId = userId)
+                            orderRepository.save(order)
+                        }
+                    }
+                    0L -> {
+                        Mono.error(ResponseStatusException(HttpStatus.CONFLICT, "SOLD OUT"))
+                    }
+                    else -> {
+                        Mono.error(ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Stock not initialized in Redis"))
+                    }
+                }
+            }
+    }
 
 
 
